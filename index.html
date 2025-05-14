@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Weather App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #fceabb, #a1c4fd, #e0eafc);
+
+      text-align: center;
+      padding: 50px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 17px;
+      margin: 10px;
+      width: 250px;
+    }
+    #suggestions {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      width: 250px;
+      margin-left: auto;
+      margin-right: auto;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+    }
+    .suggestion-item {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background-color: #f0f0f0;
+    }
+    #result {
+      margin-top: 20px;
+      background-color: rgba(251, 253, 242, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🌦 Himaja Weather Updates Dashboard</h1>
+  <div style="position: relative; display: inline-block;">
+    <input type="text" id="cityInput" placeholder="Start typing a city..." autocomplete="off" oninput="fetchSuggestions()" />
+    <div id="suggestions"></div>
+  </div>
+  <button onclick="getWeather()">Get Weather</button>
+
+  <div id="result"></div>
+
+  <script>
+    const geoApiKey = 'c2453b6ce1mshed828abe0fc0100p18c7f5jsnd0925d489611'; 
+    const weatherApiKey = 'db1115d4a0493901ac5e56b378e4446e';
+    let selectedCity = null;
+
+    async function fetchSuggestions() {
+      const query = document.getElementById('cityInput').value.trim();
+      const suggestionsBox = document.getElementById('suggestions');
+      suggestionsBox.innerHTML = '';
+      selectedCity = null; // reset
+
+      if (query.length < 2) return;
+
+      const url = `https://wft-geo-db.p.rapidapi.com/v1/geo/cities?namePrefix=${query}&limit=5&sort=-population`;
+      const headers = {
+        'X-RapidAPI-Key': geoApiKey,
+        'X-RapidAPI-Host': 'wft-geo-db.p.rapidapi.com'
+      };
+
+      try {
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+
+        data.data.forEach(city => {
+          const item = document.createElement('div');
+          item.className = 'suggestion-item';
+          item.innerText = `${city.city}, ${city.countryCode}`;
+          item.onclick = () => {
+            document.getElementById('cityInput').value = `${city.city}, ${city.countryCode}`;
+            selectedCity = {
+              name: city.city,
+              countryCode: city.countryCode,
+              lat: city.latitude,
+              lon: city.longitude
+            };
+            suggestionsBox.innerHTML = '';
+          };
+          suggestionsBox.appendChild(item);
+        });
+      } catch (error) {
+        console.error('Error fetching suggestions:', error);
+      }
+    }
+
+    async function getWeather() {
+      const resultBox = document.getElementById('result');
+
+      if (!selectedCity) {
+        resultBox.innerHTML = `<p style="color: red;">Please select a city from suggestions.</p>`;
+        return;
+      }
+
+      const { lat, lon, name } = selectedCity;
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch weather');
+        }
+
+        const data = await response.json();
+        const weather = data.weather[0].description;
+        const temp = data.main.temp;
+        const feelsLike = data.main.feels_like;
+        const humidity = data.main.humidity;
+
+        resultBox.innerHTML = `
+          <h2>Weather in ${data.name}</h2>
+          <p><strong>Description:</strong> ${weather}</p>
+          <p><strong>Temperature:</strong> ${temp}°C</p>
+          <p><strong>Feels like:</strong> ${feelsLike}°C</p>
+          <p><strong>Humidity:</strong> ${humidity}%</p>
+        `;
+      } catch (error) {
+        console.error('Error:', error);
+        resultBox.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
